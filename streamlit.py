@@ -109,26 +109,56 @@ def draw_centered_hindi_text(img_path, text, output_path, font_path, font_size=6
 
     img.save(output_path)
 
+import cv2
+from PIL import ImageFont
+import numpy as np
+
 def create_video(image_paths, script_text, voice_path):
-    script_chunks = split_script_evenly(script_text, len(image_paths))
-    audio = AudioFileClip(voice_path)
-    total_duration = audio.duration
-    per_image_duration = total_duration / len(image_paths)
-    font_path = "fonts/NotoSansDevanagari-Regular.ttf"  # Replace with your path
+    lines = script_text.strip().split('.')  # split based on full stops
+    lines = [line.strip() for line in lines if line.strip()]
+    num_images = len(image_paths)
+    num_lines = len(lines)
+
+    # Distribute lines equally among images
+    avg = max(1, num_lines // num_images)
+    grouped_lines = [lines[i:i+avg] for i in range(0, num_lines, avg)]
+
+    # Ensure groups = num_images
+    while len(grouped_lines) < num_images:
+        grouped_lines.append([])
 
     clips = []
+    font_path = "./NotoSansDevanagari-Regular.ttf"  # Hindi-friendly font
+    font_size = 70
+    font = ImageFont.truetype(font_path, font_size)
 
-    for i, (img_path, text) in enumerate(zip(image_paths, script_chunks)):
-        temp_img_path = f"assets/images/temp_hindi_img_{i}.jpg"
-        draw_centered_hindi_text(img_path, text, temp_img_path, font_path)
+    for i, (img_path, group) in enumerate(zip(image_paths, grouped_lines)):
+        text = "\n".join(textwrap.wrap(" ".join(group), width=30))
 
-        clip = ImageClip(temp_img_path).set_duration(per_image_duration)
+        img = cv2.imread(img_path)
+        img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("RGB")
+        draw = ImageDraw.Draw(img_pil)
+
+        text_width, text_height = draw.multiline_textbbox((0, 0), text, font=font)[2:]
+        x = (img_pil.width - text_width) // 2
+        y = (img_pil.height - text_height) // 2
+
+        draw.rectangle([(x - 30, y - 30), (x + text_width + 30, y + text_height + 30)], fill=(0, 0, 0, 180))
+        draw.multiline_text((x, y), text, font=font, fill=(255, 255, 255), align='center')
+
+        temp_path = f"assets/images/temp_{i}.jpg"
+        img_pil.save(temp_path)
+
+        clip = ImageClip(temp_path).set_duration(3).resize(height=1920).set_position("center")
         clips.append(clip)
 
-    final_video = concatenate_videoclips(clips).set_audio(audio).set_fps(30)
+    audio = AudioFileClip(voice_path)
+    final = concatenate_videoclips(clips).set_audio(audio).set_fps(30)
     output_path = "youtube_short.mp4"
-    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac")
+    final.write_videofile(output_path, codec='libx264', audio_codec='aac')
+
     return output_path
+
 
 # Streamlit UI
 st.title("🎬 YouTube Shorts Generator from Topic\n")
