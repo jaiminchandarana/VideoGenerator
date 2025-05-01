@@ -6,3 +6,4 @@ pillow
 python-dotenv 
 langchain 
 langchain-groq
+moviepy==1.0.3
