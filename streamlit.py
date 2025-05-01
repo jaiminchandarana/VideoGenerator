@@ -121,15 +121,15 @@ def create_video(image_paths, script_text, voice_path):
     return output_path
 
 # Streamlit UI
-st.title("🎬 YouTube Shorts Generator from Topic\n")
-topic = st.text_input("Enter a topic (Like., Parasuram, Black Holes, Oceans)")
+st.title("🎬 YouTube Shorts Generator from Topic")
+topic = st.text_input("Enter a topic (Like., Parasuram, Galaxy, Oceans)")
 
 if st.button("Generate YouTube Short"):
     if topic:
         try:
             st.info("Generating script...")
             script = generate_script(topic)
-            st.success("Script generated successfully!")
+            st.success("script generated successfully!")
 
             st.info("Fetching images...")
             images = fetch_images(topic)
@@ -144,6 +144,6 @@ if st.button("Generate YouTube Short"):
             st.video(video_path)
 
         except Exception as e:
-            st.error(f"Something went wrong: {e}")
+            st.error(f"something went wrong: {e}")
     else:
         st.warning("Please enter a topic first.")
