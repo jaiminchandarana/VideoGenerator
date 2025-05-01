@@ -10,6 +10,7 @@ import numpy as np
 import textwrap
 import streamlit as st
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
+from PIL import Image, ImageDraw, ImageFont
 
 # Load environment variables
 load_dotenv()
@@ -64,7 +65,7 @@ def fetch_images(query, num_images=5):
     return image_paths
 
 def generate_voice(script_text, output_path="assets/audio/voice.mp3"):
-    tts = gTTS(text=script_text, lang="en")
+    tts = gTTS(text=script_text, lang="hi")
     tts.save(output_path)
     return output_path
 
@@ -86,33 +87,42 @@ def wrap_text(text, width=40):
             line = [word]
     lines.append(' '.join(line))
     return lines
+def draw_centered_hindi_text(img_path, text, output_path, font_path, font_size=60):
+    # Open image with PIL
+    img = Image.open(img_path).convert("RGB")
+    img = img.resize((1080, 1920))
+    
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(font_path, font_size, encoding="unic")
+
+    # Wrap text
+    lines = textwrap.wrap(text, width=25)
+    text_height = sum([draw.textbbox((0, 0), line, font=font)[3] for line in lines])
+    y = (img.height - text_height) // 2
+
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = (img.width - text_width) // 2
+        draw.text((x, y), line, font=font, fill=(255, 255, 255))
+        y += bbox[3] + 10
+
+    img.save(output_path)
 
 def create_video(image_paths, script_text, voice_path):
     script_chunks = split_script_evenly(script_text, len(image_paths))
     audio = AudioFileClip(voice_path)
     total_duration = audio.duration
     per_image_duration = total_duration / len(image_paths)
+    font_path = "fonts/NotoSansDevanagari-Regular.ttf"  # Replace with your path
 
     clips = []
 
     for i, (img_path, text) in enumerate(zip(image_paths, script_chunks)):
-        img = cv2.imread(img_path)
-        img = cv2.resize(img, (1080, 1920))  # standard 9:16
+        temp_img_path = f"assets/images/temp_hindi_img_{i}.jpg"
+        draw_centered_hindi_text(img_path, text, temp_img_path, font_path)
 
-        wrapped_lines = wrap_text(text, width=35)
-        y0 = 1600
-        for j, line in enumerate(wrapped_lines):
-            y = y0 + j * 60
-            cv2.putText(
-                img, line, (60, y),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.5,
-                (255, 255, 255), 3, cv2.LINE_AA
-            )
-
-        temp_path = f"assets/images/temp_frame_{i}.jpg"
-        cv2.imwrite(temp_path, img)
-
-        clip = ImageClip(temp_path).set_duration(per_image_duration)
+        clip = ImageClip(temp_img_path).set_duration(per_image_duration)
         clips.append(clip)
 
     final_video = concatenate_videoclips(clips).set_audio(audio).set_fps(30)
