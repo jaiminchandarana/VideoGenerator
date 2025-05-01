@@ -122,7 +122,7 @@ def create_video(image_paths, script_text, voice_path):
 
 # Streamlit UI
 st.title("🎬 YouTube Shorts Generator from Topic")
-topic = st.text_input("Enter a topic (Like., Parasuram, Galaxy, Oceans)")
+topic = st.text_input("Enter a topic (Like., Mountain, Galaxy, Oceans)")
 
 if st.button("Generate YouTube Short"):
     if topic:
