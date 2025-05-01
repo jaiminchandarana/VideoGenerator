@@ -68,12 +68,15 @@ def generate_voice(script_text, output_path="assets/audio/voice.mp3"):
     return output_path
 
 def create_video(image_paths, script_text, voice_path):
-    raw_lines = script_text.split('.')
-    lines = [line.strip() for line in raw_lines if line.strip()]
-    # Repeat lines if fewer than images
-    while len(lines) < len(image_paths):
-        lines.append(lines[len(lines) % len(lines)])  # Reuse existing lines
-    lines = lines[:len(image_paths)]
+    def split_script_evenly(script, parts):
+        words = script.strip().split()
+        chunk_size = len(words) // parts
+        chunks = [' '.join(words[i * chunk_size : (i + 1) * chunk_size]) for i in range(parts - 1)]
+        chunks.append(' '.join(words[(parts - 1) * chunk_size:]))  # Last chunk takes the remainder
+        return chunks
+
+# Inside create_video:
+    lines = split_script_evenly(script_text, len(image_paths))
 
     clips = []
 
