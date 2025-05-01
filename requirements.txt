@@ -1,7 +1,7 @@
 streamlit 
 gtts
 requests
-Pillow-SIMD==9.5.0
+Pillow==9.5.0
 python-dotenv 
 langchain 
 langchain-groq
