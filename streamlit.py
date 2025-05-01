@@ -5,8 +5,8 @@ from moviepy.editor import *
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
-from nlp import tokenize  # Make sure this function just extracts clean topic
-from PIL import Image, ImageDraw, ImageFont
+import cv2  # OpenCV for image handling
+import numpy as np
 import textwrap
 import streamlit as st
 
@@ -72,27 +72,35 @@ def create_video(image_paths, script_text, voice_path):
     clips = []
 
     font_path = "./calibri.ttf"  # Replace with a valid TTF path
-    font_size = 48
+    font_size = 1  # OpenCV uses scale factor instead of font size directly
 
     for i, (img_path, line) in enumerate(zip(image_paths, lines)):
         line = line.strip()
         if not line:
             continue
 
-        img = Image.open(img_path).convert("RGB")
-        draw = ImageDraw.Draw(img)
-        font = ImageFont.truetype(font_path, font_size)
-        wrapped_text = textwrap.fill(line, width=40)
-        text_size = draw.textbbox((0, 0), wrapped_text, font=font)
-        x = (img.width - text_size[2]) // 2
-        y = img.height - 250
+        # Using OpenCV to read the image
+        img = cv2.imread(img_path)
 
-        draw.rectangle([(x - 20, y - 20), (x + text_size[2] + 20, y + text_size[3] + 20)], fill=(0, 0, 0, 150))
-        draw.text((x, y), wrapped_text, font=font, fill=(255, 255, 255))
+        # OpenCV uses putText to add text to the image
+        wrapped_text = textwrap.fill(line, width=40)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size = cv2.getTextSize(wrapped_text, font, font_size, 2)[0]
+
+        # Get text position for center alignment
+        x = (img.shape[1] - text_size[0]) // 2
+        y = img.shape[0] - 250
+
+        # Draw background rectangle for text
+        cv2.rectangle(img, (x - 20, y - 20), (x + text_size[0] + 20, y + text_size[1] + 20), (0, 0, 0), -1)
+
+        # Draw the text
+        cv2.putText(img, wrapped_text, (x, y + text_size[1]), font, font_size, (255, 255, 255), 2, cv2.LINE_AA)
 
         temp_img_path = f"assets/images/temp_img_{i}.jpg"
-        img.save(temp_img_path)
+        cv2.imwrite(temp_img_path, img)
 
+        # Create video clip from image
         clip = ImageClip(temp_img_path).set_duration(3).resize(height=1920).set_position("center")
         clips.append(clip)
 
@@ -103,8 +111,8 @@ def create_video(image_paths, script_text, voice_path):
     return output_path
 
 # Streamlit UI
-st.title("🎬 YouTube Shorts Generator from Topic")
-topic = st.text_input("Enter a topic (e.g., Parasuram, Black Holes, Oceans)")
+st.title("🎬 YouTube Shorts Generator from Topic\n")
+topic = st.text_input("Enter a topic (Like., Parasuram, Black Holes, Oceans)")
 
 if st.button("Generate YouTube Short"):
     if topic:
