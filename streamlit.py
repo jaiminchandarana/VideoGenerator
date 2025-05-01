@@ -109,13 +109,12 @@ topic = st.text_input("Enter a topic (e.g., Parasuram, Black Holes, Oceans)")
 if st.button("Generate YouTube Short"):
     if topic:
         try:
-            only_topic = tokenize(topic)
             st.info("Generating script...")
             script = generate_script(topic)
             st.success("Script generated successfully!")
 
             st.info("Fetching images...")
-            images = fetch_images(only_topic)
+            images = fetch_images(topic)
 
             st.info("Generating voiceover...")
             voice_path = generate_voice(script)
