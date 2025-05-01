@@ -9,6 +9,7 @@ import cv2  # OpenCV for image handling
 import numpy as np
 import textwrap
 import streamlit as st
+from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
 # Load environment variables
 load_dotenv()
@@ -67,56 +68,56 @@ def generate_voice(script_text, output_path="assets/audio/voice.mp3"):
     tts.save(output_path)
     return output_path
 
-def create_video(image_paths, script_text, voice_path):
-    def split_script_evenly(script, parts):
-        words = script.strip().split()
-        chunk_size = len(words) // parts
-        chunks = [' '.join(words[i * chunk_size : (i + 1) * chunk_size]) for i in range(parts - 1)]
-        chunks.append(' '.join(words[(parts - 1) * chunk_size:]))  # Last chunk takes the remainder
-        return chunks
+def split_script_evenly(script, parts):
+    words = script.strip().split()
+    chunk_size = len(words) // parts
+    chunks = [' '.join(words[i * chunk_size : (i + 1) * chunk_size]) for i in range(parts - 1)]
+    chunks.append(' '.join(words[(parts - 1) * chunk_size:]))
+    return chunks
 
-# Inside create_video:
-    lines = split_script_evenly(script_text, len(image_paths))
+def wrap_text(text, width=40):
+    words = text.split()
+    lines, line = [], []
+    for word in words:
+        if len(' '.join(line + [word])) <= width:
+            line.append(word)
+        else:
+            lines.append(' '.join(line))
+            line = [word]
+    lines.append(' '.join(line))
+    return lines
+
+def create_video(image_paths, script_text, voice_path):
+    script_chunks = split_script_evenly(script_text, len(image_paths))
+    audio = AudioFileClip(voice_path)
+    total_duration = audio.duration
+    per_image_duration = total_duration / len(image_paths)
 
     clips = []
 
-    font_path = "./calibri.ttf"  # Replace with a valid TTF path
-    font_size = 1  # OpenCV uses scale factor instead of font size directly
-
-    for i, (img_path, line) in enumerate(zip(image_paths, lines)):
-        line = line.strip()
-        if not line:
-            continue
-
-        # Using OpenCV to read the image
+    for i, (img_path, text) in enumerate(zip(image_paths, script_chunks)):
         img = cv2.imread(img_path)
+        img = cv2.resize(img, (1080, 1920))  # standard 9:16
 
-        # OpenCV uses putText to add text to the image
-        wrapped_text = textwrap.fill(line, width=40)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        text_size = cv2.getTextSize(wrapped_text, font, font_size, 2)[0]
+        wrapped_lines = wrap_text(text, width=35)
+        y0 = 1600
+        for j, line in enumerate(wrapped_lines):
+            y = y0 + j * 60
+            cv2.putText(
+                img, line, (60, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5,
+                (255, 255, 255), 3, cv2.LINE_AA
+            )
 
-        # Get text position for center alignment
-        x = (img.shape[1] - text_size[0]) // 2
-        y = img.shape[0] - 250
+        temp_path = f"assets/images/temp_frame_{i}.jpg"
+        cv2.imwrite(temp_path, img)
 
-        # Draw background rectangle for text
-        cv2.rectangle(img, (x - 20, y - 20), (x + text_size[0] + 20, y + text_size[1] + 20), (0, 0, 0), -1)
-
-        # Draw the text
-        cv2.putText(img, wrapped_text, (x, y + text_size[1]), font, font_size, (255, 255, 255), 2, cv2.LINE_AA)
-
-        temp_img_path = f"assets/images/temp_img_{i}.jpg"
-        cv2.imwrite(temp_img_path, img)
-
-        # Create video clip from image
-        clip = ImageClip(temp_img_path).set_duration(3).resize(height=1920).set_position("center")
+        clip = ImageClip(temp_path).set_duration(per_image_duration)
         clips.append(clip)
 
-    audio = AudioFileClip(voice_path)
     final_video = concatenate_videoclips(clips).set_audio(audio).set_fps(30)
     output_path = "youtube_short.mp4"
-    final_video.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac")
     return output_path
 
 # Streamlit UI
